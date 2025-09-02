@@ -70,30 +70,30 @@ try:
 except NameError:  # interactive/sandboxed
     BASE_DIR = os.getcwd()
 
-BOT_TOKEN = _getenv("BOT_TOKEN")
-CHANNEL_USERNAME = _getenv("CHANNEL_USERNAME", "@YourChannel")  # e.g. @public_channel or -100.. for private
-UPI_VPA = _getenv("UPI_VPA", "merchant@upi")
-UPI_NAME = _getenv("UPI_NAME", "Your Store")
+BOT_TOKEN = _getenv("8460061155:AAEQWTkIYZoipIHF-9wsWszJgUs8YxiDyhg")
+CHANNEL_USERNAME = _getenv("CHANNEL_USERNAME", "@dreamgirlanika")  # e.g. @public_channel or -100.. for private
+UPI_VPA = _getenv("UPI_VPA", "d.14360@ptaxis")
+UPI_NAME = _getenv("UPI_NAME", "Deepa")
 MODELS_DB_RAW = _getenv("MODELS_DB", "models.json")
 FIXED_DB_RAW = _getenv("FIXED_DB", "fixed_models.json")
 PAYMENTS_DB_RAW = _getenv("PAYMENTS_DB", "payments.jsonl")
 REQUIRE_JOIN = _getenv("REQUIRE_JOIN", "0") in {"1", "true", "True", "yes", "YES"}
 TIMEZONE = _getenv("TIMEZONE", "Asia/Kolkata")
-DAILY_SUM_HHMM = _getenv("DAILY_SUM_HHMM", "")  # e.g. 23:55
+DAILY_SUM_HHMM = _getenv("DAILY_SUM_HHMM", "23:55")  # e.g. 23:55
 
 # Webhook support (Render/web services)
 USE_WEBHOOK = _getenv("USE_WEBHOOK", "0") in {"1", "true", "True", "yes", "YES"}
-WEBHOOK_URL = _getenv("WEBHOOK_URL", "")  # e.g. https://your-service.onrender.com
+WEBHOOK_URL = _getenv("WEBHOOK_URL", "https://dreamgirl.onrender.com")  # e.g. https://your-service.onrender.com
 PORT = int(_getenv("PORT", "10000"))
-SECRET_TOKEN = _getenv("WEBHOOK_SECRET", "")
+SECRET_TOKEN = _getenv("WEBHOOK_SECRET", "s3cr3t-long-random")
 
 # Resolve paths relative to script folder if not absolute
 MODELS_DB = MODELS_DB_RAW if os.path.isabs(MODELS_DB_RAW) else os.path.join(BASE_DIR, MODELS_DB_RAW)
 FIXED_DB = FIXED_DB_RAW if os.path.isabs(FIXED_DB_RAW) else os.path.join(BASE_DIR, FIXED_DB_RAW)
 PAYMENTS_DB = PAYMENTS_DB_RAW if os.path.isabs(PAYMENTS_DB_RAW) else os.path.join(BASE_DIR, PAYMENTS_DB_RAW)
 
-ADMIN_CHAT_IDS_RAW = _getenv("ADMIN_CHAT_IDS", "")
-VERIFIER_CHAT_IDS_RAW = _getenv("VERIFIER_CHAT_IDS", "")
+ADMIN_CHAT_IDS_RAW = _getenv("ADMIN_CHAT_IDS", "8060302172,5312628642")
+VERIFIER_CHAT_IDS_RAW = _getenv("VERIFIER_CHAT_IDS", "8060302172,5312628642")
 
 
 def _parse_ids(raw: str) -> set[int]:
