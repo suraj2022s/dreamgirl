@@ -84,7 +84,7 @@ DAILY_SUM_HHMM = _getenv("DAILY_SUM_HHMM", "")  # e.g. 23:55
 # Webhook support (Render/web services)
 USE_WEBHOOK = _getenv("USE_WEBHOOK", "0") in {"1", "true", "True", "yes", "YES"}
 WEBHOOK_URL = _getenv("WEBHOOK_URL", "")  # e.g. https://your-service.onrender.com
-PORT = int(_getenv("PORT", "8000"))
+PORT = int(_getenv("PORT", "10000"))
 SECRET_TOKEN = _getenv("WEBHOOK_SECRET", "")
 
 # Resolve paths relative to script folder if not absolute
@@ -1021,7 +1021,7 @@ def main() -> None:
     if not TELEGRAM_AVAILABLE:
         print(
             "python-telegram-bot is not installed.\n"
-            "Install deps: pip install 'python-telegram-bot[webhooks]' qrcode pillow httpx aiohttp tzdata"
+            "Install deps: pip install 'python-telegram-bot[webhooks,job-queue]' qrcode pillow httpx aiohttp tzdata"
         )
         raise SystemExit(1)
 
@@ -1067,58 +1067,36 @@ def main() -> None:
     fdata = load_fixed()
     logging.info(f"Loaded plans: {len(MODELS)} | fixed models: {len(fdata['models'])}")
 
-    # schedule daily total if configured and JobQueue exists
-    if DAILY_SUM_HHMM:
-        jq = getattr(app, "job_queue", None)
-        if jq:
-            try:
-                hh, mm = DAILY_SUM_HHMM.strip().split(":")
-                t = dtime(hour=int(hh), minute=int(mm), tzinfo=ZONE)
-                jq.run_daily(daily_total_job, time=t, name="daily-total")
-                logging.info(f"Daily total scheduled at {DAILY_SUM_HHMM} {TIMEZONE}")
-            except Exception as e:
-                logging.warning(f"Failed to schedule daily total: {e}")
-        else:
-            logging.warning("JobQueue not available — install PTB with job-queue extra to enable daily totals")
+    # schedule daily total if configured and JobQueue is available
+    jq = getattr(app, "job_queue", None)
+    if DAILY_SUM_HHMM and jq:
+        try:
+            hh, mm = DAILY_SUM_HHMM.strip().split(":")
+            t = dtime(hour=int(hh), minute=int(mm), tzinfo=ZONE)
+            jq.run_daily(daily_total_job, time=t, name="daily-total")
+            logging.info(f"Daily total scheduled at {DAILY_SUM_HHMM} {TIMEZONE}")
+        except Exception as e:
+            logging.warning(f"Failed to schedule daily total: {e}")
 
     if USE_WEBHOOK and WEBHOOK_URL:
         # Webhook mode
         url_path = BOT_TOKEN  # secret path
         full_webhook = f"{WEBHOOK_URL.rstrip('/')}/{url_path}"
         logging.info(f"Webhook -> {full_webhook}")
-        app.run_webhook(listen="0.0.0.0", port=PORT, url_path=url_path, webhook_url=full_webhook, secret_token=SECRET_TOKEN)
+        app.run_webhook(
+            listen="0.0.0.0",
+            port=PORT,
+            url_path=url_path,
+            webhook_url=full_webhook,
+            secret_token=(SECRET_TOKEN or None),
+        )
     else:
         # Polling mode (also start tiny health server if PORT set)
         maybe_start_health_server()
         logging.info("Bot started. Press Ctrl+C to stop.")
+        app.run_polling()
 
-        # --- Webhook vs Polling start ---
-        USE_WEBHOOK = os.getenv("USE_WEBHOOK", "0") in {"1", "true", "True", "yes", "YES"}
-        WEBHOOK_URL = os.getenv("WEBHOOK_URL", "").strip().rstrip("/")
-        WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "").strip() or None
-        PORT = int(os.getenv("PORT", "10000"))
 
-        USE_WEBHOOK = os.getenv("USE_WEBHOOK", "0") in {"1", "true", "True", "yes", "YES"}
-        WEBHOOK_URL = os.getenv("WEBHOOK_URL", "").strip().rstrip("/")
-        WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "").strip() or None
-        PORT = int(os.getenv("PORT", "10000"))
-
-        if USE_WEBHOOK:
-            if not WEBHOOK_URL:
-                raise SystemExit("WEBHOOK_URL is required when USE_WEBHOOK=1")
-            url_path = BOT_TOKEN
-            public_url = f"{WEBHOOK_URL}/{url_path}"
-            logging.info(f"Webhook -> {public_url}")
-            app.run_webhook(
-                listen="0.0.0.0",
-                port=PORT,
-                url_path=url_path,
-                webhook_url=public_url,
-                secret_token=WEBHOOK_SECRET,
-            )
-        else:
-            app.run_polling()
-        # --- Webhook vs Polling end ---
 if __name__ == "__main__":
     try:
         main()
