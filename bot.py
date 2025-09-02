@@ -11,7 +11,7 @@ Highlights
 - Payment proof flow: collect UTR (Unique Transaction Reference number) + optional screenshot
 - Recording payments -> payments.jsonl, /total YYYY-MM-DD, optional daily summary (DAILY_SUM_HHMM)
 - Multi-admin support via ADMIN_CHAT_IDS (and VERIFIER_CHAT_IDS)
-- Polling mode (local) and Webhook mode (Render/any web host). Health endpoint on '/'
+- Polling mode (local) and Webhook mode (Render/any web host)
 - Self-test: run `python bot.py selftest`
 """
 
@@ -139,23 +139,39 @@ Use the menu to view plans and pay via UPI.
 5) We'll confirm and schedule
 """
 
+# ----------------------- TIME/ZONE ----------------------- #
+
+def _get_zone(tzname: str):
+    try:
+        return ZoneInfo(tzname)
+    except Exception:
+        # Fallback for systems without tzdata
+        if tzname in ("Asia/Kolkata", "Asia/Calcutta"):
+            return timezone(timedelta(hours=5, minutes=30), name="Asia/Kolkata")
+        return timezone.utc
+
+ZONE = _get_zone(TIMEZONE)
+
+def now_local() -> datetime:
+    return datetime.now(ZONE)
+
 # ----------------------- STORAGE LOADERS ----------------------- #
 
 MODELS: list[dict] = []  # dynamic plans
 
 # Default models (your catalog)
 DEFAULT_MODELS = [
-    {"id": "plan1",  "name": "Pic In Dress",           "price_inr": 200,  "sku": "PIC1",        "desc": "1 photo in dress"},
-    {"id": "plan2",  "name": "Nude Pic",               "price_inr": 500,  "sku": "NUDE1",      "desc": "1 nude photo"},
-    {"id": "plan3",  "name": "Audio Call",             "price_inr": 500,  "sku": "CALL8",      "desc": "8-minute audio call"},
-    {"id": "plan4",  "name": "Boobs Show",             "price_inr": 500,  "sku": "BOOBS5",     "desc": "5-minute boobs show"},
-    {"id": "plan5",  "name": "Full Show",              "price_inr": 1500, "sku": "FULL12",     "desc": "12-minute full show"},
-    {"id": "plan6",  "name": "Sex/Dirty Chat",         "price_inr": 500,  "sku": "CHAT8",      "desc": "8-minute dirty chat"},
-    {"id": "plan7",  "name": "Full Show with Face",    "price_inr": 2000, "sku": "FULLFACE15", "desc": "15-minute full show with face"},
-    {"id": "plan8",  "name": "Fingering Show",         "price_inr": 1500, "sku": "FINGER10",   "desc": "10-minute fingering show"},
-    {"id": "plan9",  "name": "Abuse Show",             "price_inr": 1500, "sku": "ABUSE12",    "desc": "12-minute abuse show"},
-    {"id": "plan10", "name": "Role Play",               "price_inr": 1500, "sku": "ROLE12",     "desc": "12-minute role play"},
-    {"id": "plan11", "name": "Couple Show",            "price_inr": 3500, "sku": "COUPLE30",   "desc": "30-minute couple show"},
+    {"id": "plan1", "name": "Pic In Dress", "price_inr": 200, "sku": "PIC1", "desc": "1 photo in dress"},
+    {"id": "plan2", "name": "Nude Pic", "price_inr": 500, "sku": "NUDE1", "desc": "1 nude photo"},
+    {"id": "plan3", "name": "Audio Call", "price_inr": 500, "sku": "CALL8", "desc": "8-minute audio call"},
+    {"id": "plan4", "name": "Boobs Show", "price_inr": 500, "sku": "BOOBS5", "desc": "5-minute boobs show"},
+    {"id": "plan5", "name": "Full Show", "price_inr": 1500, "sku": "FULL12", "desc": "12-minute full show"},
+    {"id": "plan6", "name": "Sex/Dirty Chat", "price_inr": 500, "sku": "CHAT8", "desc": "8-minute dirty chat"},
+    {"id": "plan7", "name": "Full Show with Face", "price_inr": 2000, "sku": "FULLFACE15", "desc": "15-minute full show with face"},
+    {"id": "plan8", "name": "Fingering Show", "price_inr": 1500, "sku": "FINGER10", "desc": "10-minute fingering show"},
+    {"id": "plan9", "name": "Abuse Show", "price_inr": 1500, "sku": "ABUSE12", "desc": "12-minute abuse show"},
+    {"id": "plan10", "name": "Role Play", "price_inr": 1500, "sku": "ROLE12", "desc": "12-minute role play"},
+    {"id": "plan11", "name": "Couple Show", "price_inr": 3500, "sku": "COUPLE30", "desc": "30-minute couple show"},
 ]
 
 DEFAULT_FIXED = {
@@ -166,22 +182,8 @@ DEFAULT_FIXED = {
 }
 
 
-def _get_zone(tzname: str):
-    """Return a tzinfo; prefer IANA via ZoneInfo, else fall back to fixed offsets."""
-    try:
-        return ZoneInfo(tzname)
-    except Exception:
-        if tzname in ("Asia/Kolkata", "Asia/Calcutta"):
-            return timezone(timedelta(hours=5, minutes=30), name="Asia/Kolkata")
-        return timezone.utc
-
-ZONE = _get_zone(TIMEZONE)
-
-def now_local() -> datetime:
-    return datetime.now(ZONE)
-
-
 def ensure_default_files() -> None:
+    """Create default JSON files if missing."""
     if not os.path.exists(MODELS_DB):
         try:
             with open(MODELS_DB, "w", encoding="utf-8") as f:
@@ -198,17 +200,20 @@ def ensure_default_files() -> None:
             logging.error(f"Failed to create {FIXED_DB}: {e}")
 
 
+def _price(v) -> float:
+    try:
+        return float(v)
+    except Exception:
+        return 0.0
+
+
 def load_models() -> None:
+    """Load plans from models.json; keep a sorted list by price asc then name."""
     global MODELS
     try:
         with open(MODELS_DB, "r", encoding="utf-8") as f:
             data = json.load(f)
         if isinstance(data, list):
-            def _price(v):
-                try:
-                    return float(v)
-                except Exception:
-                    return 0.0
             MODELS = sorted(
                 data,
                 key=lambda m: (_price(m.get("price_inr", 0)), str(m.get("name", "")).lower()),
@@ -965,6 +970,7 @@ def _selftest() -> int:
     ids = _parse_ids("111, 222 333")
     assert ids == {111, 222, 333}
 
+    # Payments log append + read-back sum
     proof = {"price_inr": 1500, "type": "fixed", "model_id": "x1", "model_name": "Test", "order_id": "ODR-1"}
     record_payment(proof, 1, "Tester")
     today = now_local().strftime("%Y-%m-%d")
@@ -1015,7 +1021,7 @@ def main() -> None:
     if not TELEGRAM_AVAILABLE:
         print(
             "python-telegram-bot is not installed.\n"
-            "Install deps: pip install python-telegram-bot==21.6 qrcode pillow httpx aiohttp tzdata"
+            "Install deps: pip install 'python-telegram-bot[webhooks]' qrcode pillow httpx aiohttp tzdata"
         )
         raise SystemExit(1)
 
@@ -1024,7 +1030,8 @@ def main() -> None:
 
     ensure_default_files()
 
-    logging.info("Starting bot… (mode: webhook)" if (USE_WEBHOOK and WEBHOOK_URL) else "Starting bot… (mode: polling)")
+    mode = "webhook" if (USE_WEBHOOK and WEBHOOK_URL) else "polling"
+    logging.info(f"Starting bot… (mode: {mode})")
     logging.info(f"Base dir: {BASE_DIR}")
     logging.info(f"Resolved MODELS_DB: {MODELS_DB}")
     logging.info(f"Resolved FIXED_DB:  {FIXED_DB}")
@@ -1060,39 +1067,28 @@ def main() -> None:
     fdata = load_fixed()
     logging.info(f"Loaded plans: {len(MODELS)} | fixed models: {len(fdata['models'])}")
 
-    # schedule daily total if configured, e.g. DAILY_SUM_HHMM="23:55"
-    if DAILY_SUM_HHMM and ADMIN_CHAT_IDS:
-        try:
-            hh, mm = DAILY_SUM_HHMM.strip().split(":")
-            t = dtime(hour=int(hh), minute=int(mm), tzinfo=ZONE)
-            app.job_queue.run_daily(daily_total_job, time=t, name="daily-total")
-            logging.info(f"Daily total scheduled at {DAILY_SUM_HHMM} {TIMEZONE}")
-        except Exception as e:
-            logging.warning(f"Failed to schedule daily total: {e}")
+    # schedule daily total if configured and JobQueue exists
+    if DAILY_SUM_HHMM:
+        jq = getattr(app, "job_queue", None)
+        if jq:
+            try:
+                hh, mm = DAILY_SUM_HHMM.strip().split(":")
+                t = dtime(hour=int(hh), minute=int(mm), tzinfo=ZONE)
+                jq.run_daily(daily_total_job, time=t, name="daily-total")
+                logging.info(f"Daily total scheduled at {DAILY_SUM_HHMM} {TIMEZONE}")
+            except Exception as e:
+                logging.warning(f"Failed to schedule daily total: {e}")
+        else:
+            logging.warning("JobQueue not available — install PTB with job-queue extra to enable daily totals")
 
     if USE_WEBHOOK and WEBHOOK_URL:
-        # Add a simple health route so platform health checks hit '/'
-        try:
-            from aiohttp import web  # provided by PTB
-            async def _health(_request):
-                return web.Response(text="ok")
-            app.web_app.add_routes([web.get("/", _health)])
-        except Exception as e:
-            logging.warning(f"Could not attach health route: {e}")
-
-        # Telegram webhook setup
-        url_path = BOT_TOKEN  # obscure path
-        full_url = WEBHOOK_URL.rstrip("/") + "/" + url_path
-        logging.info(f"Starting webhook on 0.0.0.0:{PORT} → {full_url}")
-        app.run_webhook(
-            listen="0.0.0.0",
-            port=PORT,
-            url_path=url_path,
-            webhook_url=full_url,
-            secret_token=(SECRET_TOKEN or None),
-        )
+        # Webhook mode
+        url_path = BOT_TOKEN  # secret path
+        full_webhook = f"{WEBHOOK_URL.rstrip('/')}/{url_path}"
+        logging.info(f"Webhook -> {full_webhook}")
+        app.run_webhook(listen="0.0.0.0", port=PORT, url_path=url_path, webhook_url=full_webhook, secret_token=SECRET_TOKEN)
     else:
-        # Polling mode (also starts tiny health server if PORT is set)
+        # Polling mode (also start tiny health server if PORT set)
         maybe_start_health_server()
         logging.info("Bot started. Press Ctrl+C to stop.")
         app.run_polling()
