@@ -1091,9 +1091,34 @@ def main() -> None:
         # Polling mode (also start tiny health server if PORT set)
         maybe_start_health_server()
         logging.info("Bot started. Press Ctrl+C to stop.")
-        app.run_polling()
 
+        # --- Webhook vs Polling start ---
+        USE_WEBHOOK = os.getenv("USE_WEBHOOK", "0") in {"1", "true", "True", "yes", "YES"}
+        WEBHOOK_URL = os.getenv("WEBHOOK_URL", "").strip().rstrip("/")
+        WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "").strip() or None
+        PORT = int(os.getenv("PORT", "10000"))
 
+        USE_WEBHOOK = os.getenv("USE_WEBHOOK", "0") in {"1", "true", "True", "yes", "YES"}
+        WEBHOOK_URL = os.getenv("WEBHOOK_URL", "").strip().rstrip("/")
+        WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "").strip() or None
+        PORT = int(os.getenv("PORT", "10000"))
+
+        if USE_WEBHOOK:
+            if not WEBHOOK_URL:
+                raise SystemExit("WEBHOOK_URL is required when USE_WEBHOOK=1")
+            url_path = BOT_TOKEN
+            public_url = f"{WEBHOOK_URL}/{url_path}"
+            logging.info(f"Webhook -> {public_url}")
+            app.run_webhook(
+                listen="0.0.0.0",
+                port=PORT,
+                url_path=url_path,
+                webhook_url=public_url,
+                secret_token=WEBHOOK_SECRET,
+            )
+        else:
+            app.run_polling()
+        # --- Webhook vs Polling end ---
 if __name__ == "__main__":
     try:
         main()
