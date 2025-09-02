@@ -1,0 +1,5 @@
+﻿python-telegram-bot[webhooks]==21.6
+qrcode
+pillow
+httpx
+tzdata

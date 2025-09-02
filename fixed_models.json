@@ -1,0 +1,14 @@
+{
+  "fixed_price": {
+    "amount": 2000,
+    "duration": "15 min"
+  },
+  "models": [
+    {
+      "id": "m1",
+      "name": "Meera",
+      "photo": "https://picsum.photos/seed/meera/800/1000",
+      "desc": "Fixed-rate session"
+    }
+  ]
+}
